@@ -8,153 +8,419 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
 </head>
 <body>
-    <div id="audioDisclaimer" style="position: absolute; top: 15px; left: 50%; transform: translateX(-50%); color: #94a3b8; font-size: 0.85rem; background: rgba(0,0,0,0.6); padding: 6px 16px; border-radius: 20px; cursor: pointer; border: 1px solid rgba(255,255,255,0.1); z-index: 10; transition: opacity 0.5s;">
-        🔊 คลิกลงบนหน้าจอนี้ 1 ครั้งเพื่อเปิดระบบเสียงแจ้งเตือน
+    <!-- ปุ่มเปิดเสียง -->
+    <div id="audioDisclaimer" onclick="enableSound()" style="position:absolute;top:15px;left:50%;transform:translateX(-50%);color:#fff;font-size:0.9rem;font-weight:700;background:linear-gradient(135deg,#dc2626,#ef4444);padding:10px 22px;border-radius:999px;cursor:pointer;z-index:100;transition:opacity 0.5s;box-shadow:0 4px 20px rgba(239,68,68,0.5);white-space:nowrap;">
+        🔊 แตะที่นี่เพื่อเปิดเสียงแจ้งเตือน
     </div>
-    
+
     <div class="container camera-container">
         <h1>Patient Camera Monitor</h1>
-        <p>กำลังเปิดกล้องและรอรับข้อมูลแจ้งเตือน...</p>
-        
-        <div class="camera-wrapper">
-            <!-- Camera Feed -->
+        <p id="statusText">กำลังเปิดกล้อง...</p>
+
+        <div class="camera-wrapper" id="cameraWrapper">
             <video id="webcam" autoplay playsinline muted></video>
-            
-            <!-- Message Overlay -->
+
+            <!-- Canvas วาด bounding box -->
+            <canvas id="detectionCanvas"></canvas>
+
+            <!-- Canvas รับการลากเลือก template -->
+            <canvas id="selCanvas"></canvas>
+
+            <!-- Overlay แจ้งเตือนสถานะน้ำเกลือ -->
             <div id="messageOverlay" class="message-overlay hidden">
                 <span id="overlayStatus" class="overlay-status"></span>
                 <span id="overlayLevel" class="overlay-level"></span>
             </div>
         </div>
-        
-        <div id="messageLog" class="message-log mt-3">
+
+        <!-- แถบปุ่มควบคุม tracker -->
+        <div style="display:flex;gap:0.75rem;justify-content:center;margin-bottom:1.5rem;flex-wrap:wrap;">
+            <button id="captureBtn" onclick="startCapture()" style="background:linear-gradient(135deg,#2563eb,#3b82f6);color:#fff;border:none;padding:0.75rem 1.5rem;border-radius:12px;font-weight:700;font-size:0.95rem;cursor:pointer;font-family:'Inter',sans-serif;box-shadow:0 4px 15px rgba(59,130,246,0.4);transition:all 0.2s;">
+                📸 จำวัตถุ
+            </button>
+            <button onclick="resetTracker()" style="background:rgba(255,255,255,0.07);color:#94a3b8;border:1px solid rgba(255,255,255,0.1);padding:0.75rem 1.5rem;border-radius:12px;font-weight:700;font-size:0.95rem;cursor:pointer;font-family:'Inter',sans-serif;transition:all 0.2s;">
+                🗑️ รีเซ็ต
+            </button>
+            <div id="matchInfo" style="display:flex;align-items:center;background:rgba(0,0,0,0.3);border-radius:12px;padding:0.5rem 1rem;color:#64748b;font-size:0.8rem;font-family:'Inter',sans-serif;"></div>
+        </div>
+
+        <div id="messageLog" class="message-log">
             <div class="empty-state">ยังไม่มีข้อมูลส่งเข้ามา...</div>
         </div>
     </div>
 
     <script>
-        // --- ระบบเปิดกล้อง (Camera Setup) ---
-        async function initCamera() {
-            try {
-                // ขออนุญาตใช้กล้องจากเบราว์เซอร์
-                const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-                const videoElement = document.getElementById('webcam');
-                videoElement.srcObject = stream;
-            } catch (err) {
-                console.error("Error accessing camera: ", err);
-                alert("ไม่สามารถเปิดกล้องได้ โปรดตรวจสอบการอนุญาต (Permissions) ในเบราว์เซอร์ของคุณ");
+    // ============================================================
+    //  CAMERA
+    // ============================================================
+    const video     = document.getElementById('webcam');
+    const detCanvas = document.getElementById('detectionCanvas');
+    const detCtx    = detCanvas.getContext('2d');
+    const selCanvas = document.getElementById('selCanvas');
+    const selCtx    = selCanvas.getContext('2d');
+    const wrapper   = document.getElementById('cameraWrapper');
+    const matchInfo = document.getElementById('matchInfo');
+    const statusText= document.getElementById('statusText');
+
+    async function initCamera() {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ video: { width:1280, height:720 }, audio:false });
+            video.srcObject = stream;
+            video.onloadedmetadata = () => {
+                video.play();
+                resizeCanvases();
+                statusText.textContent = 'กล้องพร้อมแล้ว — กด 📸 จำวัตถุ เพื่อเริ่มติดตาม';
+                detectLoop();
+            };
+        } catch(e) {
+            statusText.textContent = '❌ เปิดกล้องไม่ได้ กรุณาอนุญาต Camera';
+            console.error(e);
+        }
+    }
+
+    function resizeCanvases() {
+        const vw = video.videoWidth, vh = video.videoHeight;
+        [detCanvas, selCanvas].forEach(c => {
+            c.width  = vw; c.height = vh;
+            c.style.position = 'absolute';
+            c.style.top = c.style.left = '0';
+            c.style.width = '100%'; c.style.height = '100%';
+            c.style.transform = 'scaleX(-1)';   // mirror เหมือน video
+        });
+        selCanvas.style.zIndex = '10';   // รับ mouse events อยู่บนสุด
+        detCanvas.style.zIndex = '4';
+        selCanvas.style.cursor = 'crosshair';
+    }
+
+    initCamera();
+
+    // ============================================================
+    //  TEMPLATE CAPTURE (drag to select)
+    // ============================================================
+    let isSelecting = false;
+    let sel = { x0:0, y0:0, x1:0, y1:0 };
+    let captureMode = false;
+
+    function startCapture() {
+        captureMode = true;
+        statusText.textContent = '🖱️ ลากเลือกวัตถุที่ต้องการติดตามบนภาพกล้อง';
+        document.getElementById('captureBtn').style.background = 'linear-gradient(135deg,#d97706,#f59e0b)';
+    }
+
+    selCanvas.addEventListener('mousedown', e => {
+        if (!captureMode) return;
+        isSelecting = true;
+        const r = selCanvas.getBoundingClientRect();
+        // แปลง CSS px → pixel coords (mirrored)
+        const cssX = e.clientX - r.left;
+        const cssY = e.clientY - r.top;
+        const scaleX = selCanvas.width  / r.width;
+        const scaleY = selCanvas.height / r.height;
+        // mirror กลับ (canvas ถูก scaleX(-1))
+        const px = (r.width - cssX) * scaleX;
+        const py = cssY * scaleY;
+        sel.x0 = sel.x1 = px;
+        sel.y0 = sel.y1 = py;
+    });
+
+    selCanvas.addEventListener('mousemove', e => {
+        if (!isSelecting) return;
+        const r = selCanvas.getBoundingClientRect();
+        const cssX = e.clientX - r.left;
+        const cssY = e.clientY - r.top;
+        const scaleX = selCanvas.width  / r.width;
+        const scaleY = selCanvas.height / r.height;
+        sel.x1 = (r.width - cssX) * scaleX;
+        sel.y1 = cssY * scaleY;
+
+        // วาดกรอบเลือก
+        selCtx.clearRect(0, 0, selCanvas.width, selCanvas.height);
+        const x = Math.min(sel.x0, sel.x1);
+        const y = Math.min(sel.y0, sel.y1);
+        const w = Math.abs(sel.x1 - sel.x0);
+        const h = Math.abs(sel.y1 - sel.y0);
+        selCtx.strokeStyle = '#f59e0b';
+        selCtx.lineWidth = 3;
+        selCtx.setLineDash([8, 4]);
+        selCtx.strokeRect(x, y, w, h);
+        selCtx.fillStyle = 'rgba(245,158,11,0.1)';
+        selCtx.fillRect(x, y, w, h);
+    });
+
+    selCanvas.addEventListener('mouseup', e => {
+        if (!isSelecting) return;
+        isSelecting = false;
+        selCtx.clearRect(0, 0, selCanvas.width, selCanvas.height);
+        selCtx.setLineDash([]);
+
+        const x = Math.round(Math.min(sel.x0, sel.x1));
+        const y = Math.round(Math.min(sel.y0, sel.y1));
+        const w = Math.round(Math.abs(sel.x1 - sel.x0));
+        const h = Math.round(Math.abs(sel.y1 - sel.y0));
+
+        if (w < 10 || h < 10) return;
+        captureTemplate(x, y, w, h);
+        captureMode = false;
+        document.getElementById('captureBtn').style.background = 'linear-gradient(135deg,#2563eb,#3b82f6)';
+    });
+
+    // Touch support
+    selCanvas.addEventListener('touchstart', e => {
+        e.preventDefault();
+        const t = e.touches[0];
+        selCanvas.dispatchEvent(new MouseEvent('mousedown', { clientX: t.clientX, clientY: t.clientY }));
+    });
+    selCanvas.addEventListener('touchmove', e => {
+        e.preventDefault();
+        const t = e.touches[0];
+        selCanvas.dispatchEvent(new MouseEvent('mousemove', { clientX: t.clientX, clientY: t.clientY }));
+    });
+    selCanvas.addEventListener('touchend', e => {
+        e.preventDefault();
+        selCanvas.dispatchEvent(new MouseEvent('mouseup', {}));
+    });
+
+    // ============================================================
+    //  TEMPLATE MATCHING
+    // ============================================================
+    const SCALE = 0.2;     // ย่อ 5x เพื่อ performance
+    const STEP  = 2;       // ข้าม pixel ใน search
+    const THRESHOLD = 0.55; // NCC threshold (0-1)
+    let tmpl = null;       // { data, w, h, origW, origH }
+    let tracking = false;
+
+    function captureTemplate(x, y, w, h) {
+        const sw = Math.max(1, Math.floor(w * SCALE));
+        const sh = Math.max(1, Math.floor(h * SCALE));
+
+        const tmpC = document.createElement('canvas');
+        tmpC.width = sw; tmpC.height = sh;
+        const tmpCtx = tmpC.getContext('2d');
+        tmpCtx.drawImage(video, x, y, w, h, 0, 0, sw, sh);
+
+        const data = tmpCtx.getImageData(0, 0, sw, sh).data;
+        tmpl = { data, w: sw, h: sh, origW: w, origH: h };
+        tracking = true;
+        statusText.textContent = `✅ จำวัตถุแล้ว (${w}×${h}px) — กำลังติดตาม...`;
+        matchInfo.textContent = '';
+    }
+
+    function resetTracker() {
+        tmpl = null;
+        tracking = false;
+        detCtx.clearRect(0, 0, detCanvas.width, detCanvas.height);
+        matchInfo.textContent = '';
+        statusText.textContent = 'กด 📸 จำวัตถุ เพื่อเริ่มติดตามใหม่';
+    }
+
+    function doMatch() {
+        if (!tmpl || !tracking) return null;
+        const vw = video.videoWidth, vh = video.videoHeight;
+        const sw = Math.floor(vw * SCALE);
+        const sh = Math.floor(vh * SCALE);
+        const tw = tmpl.w, th = tmpl.h;
+        if (tw > sw || th > sh) return null;
+
+        // ดึง pixel จาก video frame ที่ย่อแล้ว
+        const fC = document.createElement('canvas');
+        fC.width = sw; fC.height = sh;
+        fC.getContext('2d').drawImage(video, 0, 0, sw, sh);
+        const fd = fC.getContext('2d').getImageData(0, 0, sw, sh).data;
+        const td = tmpl.data;
+
+        // คำนวณ template mean + std
+        const tp = tw * th;
+        let tmR=0, tmG=0, tmB=0;
+        for (let i=0; i<td.length; i+=4) { tmR+=td[i]; tmG+=td[i+1]; tmB+=td[i+2]; }
+        tmR/=tp; tmG/=tp; tmB/=tp;
+        let tVar=0;
+        for (let i=0; i<td.length; i+=4) {
+            tVar += (td[i]-tmR)**2 + (td[i+1]-tmG)**2 + (td[i+2]-tmB)**2;
+        }
+        const tStd = Math.sqrt(tVar/tp) || 1;
+
+        let best=-Infinity, bx=0, by=0;
+
+        for (let y=0; y<=sh-th; y+=STEP) {
+            for (let x=0; x<=sw-tw; x+=STEP) {
+                // region mean
+                let fmR=0,fmG=0,fmB=0;
+                for (let ty=0; ty<th; ty++) {
+                    for (let tx=0; tx<tw; tx++) {
+                        const fi=((y+ty)*sw+(x+tx))*4;
+                        fmR+=fd[fi]; fmG+=fd[fi+1]; fmB+=fd[fi+2];
+                    }
+                }
+                fmR/=tp; fmG/=tp; fmB/=tp;
+
+                let num=0, fVar=0;
+                for (let ty=0; ty<th; ty++) {
+                    for (let tx=0; tx<tw; tx++) {
+                        const fi=((y+ty)*sw+(x+tx))*4;
+                        const ti=(ty*tw+tx)*4;
+                        const fr=fd[fi]-fmR, fg=fd[fi+1]-fmG, fb=fd[fi+2]-fmB;
+                        const tr=td[ti]-tmR, tg=td[ti+1]-tmG, tb=td[ti+2]-tmB;
+                        num += fr*tr + fg*tg + fb*tb;
+                        fVar+= fr*fr + fg*fg + fb*fb;
+                    }
+                }
+                const fStd = Math.sqrt(fVar/tp) || 1;
+                const ncc = num/(tp*fStd*tStd);
+                if (ncc > best) { best=ncc; bx=x; by=y; }
             }
         }
-        // เรียกใช้งานทันที
-        initCamera();
 
-        // --- ระบบเสียงแจ้งเตือน (Web Audio API) ---
-        let audioCtx = null;
-        const disclaimer = document.getElementById('audioDisclaimer');
+        return { x: bx/SCALE, y: by/SCALE, w: tmpl.origW, h: tmpl.origH, score: best };
+    }
 
-        function initAudio() {
-            if (!audioCtx) {
-                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    // ============================================================
+    //  DETECTION LOOP
+    // ============================================================
+    let frameCount = 0;
+    function detectLoop() {
+        frameCount++;
+
+        if (tracking && frameCount % 4 === 0) { // รัน AI ทุก 4 frames
+            const match = doMatch();
+            detCtx.clearRect(0, 0, detCanvas.width, detCanvas.height);
+
+            if (match && match.score >= THRESHOLD) {
+                const { x, y, w, h, score } = match;
+                const pct = Math.round(score * 100);
+                matchInfo.textContent = `🎯 ความมั่นใจ: ${pct}%`;
+                matchInfo.style.color = score > 0.7 ? '#10b981' : '#f59e0b';
+
+                // วาดกรอบ
+                detCtx.strokeStyle = '#3b82f6';
+                detCtx.lineWidth = 3;
+                detCtx.shadowColor = '#3b82f6';
+                detCtx.shadowBlur = 10;
+                detCtx.strokeRect(x, y, w, h);
+
+                // corner accents
+                const cl = Math.min(w, h) * 0.18;
+                detCtx.lineWidth = 5;
+                [[x,y],[x+w,y],[x,y+h],[x+w,y+h]].forEach(([cx,cy], i) => {
+                    const dx = i%2===0 ? cl : -cl;
+                    const dy = i<2 ? cl : -cl;
+                    detCtx.beginPath();
+                    detCtx.moveTo(cx+dx, cy); detCtx.lineTo(cx, cy); detCtx.lineTo(cx, cy+dy);
+                    detCtx.stroke();
+                });
+
+                // label
+                detCtx.shadowBlur = 0;
+                detCtx.font = 'bold 15px Inter, sans-serif';
+                const label = `💉 วัตถุ ${pct}%`;
+                const tw2 = detCtx.measureText(label).width;
+                const lbY = y > 28 ? y - 6 : y + h + 22;
+                detCtx.fillStyle = '#3b82f6';
+                detCtx.fillRect(x-1, lbY-18, tw2+14, 24);
+                detCtx.fillStyle = '#fff';
+                detCtx.fillText(label, x+6, lbY-1);
+            } else if (match) {
+                matchInfo.textContent = `👁️ ไม่พบวัตถุ (${Math.round(match.score*100)}%)`;
+                matchInfo.style.color = '#64748b';
             }
-            if (audioCtx.state === 'suspended') {
-                audioCtx.resume();
-            }
+        }
+
+        requestAnimationFrame(detectLoop);
+    }
+
+    // ============================================================
+    //  AUDIO
+    // ============================================================
+    let audioCtx = null, audioReady = false;
+    const disclaimer = document.getElementById('audioDisclaimer');
+
+    function enableSound() {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        audioCtx.resume().then(() => {
+            audioReady = true;
+            playBeep(440, 0.08, 0.15);
             if (disclaimer) {
-                disclaimer.style.opacity = '0';
-                setTimeout(() => disclaimer.remove(), 500);
+                disclaimer.innerHTML = '✅ เปิดเสียงแล้ว!';
+                disclaimer.style.background = 'linear-gradient(135deg,#059669,#10b981)';
+                disclaimer.style.cursor = 'default';
+                setTimeout(() => {
+                    disclaimer.style.opacity = '0';
+                    setTimeout(() => disclaimer.remove(), 500);
+                }, 1500);
             }
+        });
+    }
+    document.body.addEventListener('click', () => { if (!audioReady) enableSound(); });
+
+    function playBeep(freq, vol, dur) {
+        if (!audioCtx) return;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        gain.gain.setValueAtTime(0, audioCtx.currentTime);
+        gain.gain.linearRampToValueAtTime(vol, audioCtx.currentTime + 0.05);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+        osc.start(audioCtx.currentTime); osc.stop(audioCtx.currentTime + dur + 0.05);
+    }
+
+    function playAlertSound() {
+        if (!audioCtx) { enableSound(); return; }
+        if (audioCtx.state === 'suspended') { audioCtx.resume(); return; }
+        for (let i=0; i<3; i++) {
+            const t = audioCtx.currentTime + i * 0.4;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            osc.type = 'square'; osc.frequency.setValueAtTime(880, t);
+            gain.gain.setValueAtTime(0, t);
+            gain.gain.linearRampToValueAtTime(0.2, t+0.05);
+            gain.gain.exponentialRampToValueAtTime(0.001, t+0.3);
+            osc.start(t); osc.stop(t+0.35);
         }
-        document.body.addEventListener('click', initAudio);
+    }
 
-        function playAlertSound() {
-            if (!audioCtx) return;
-            if (audioCtx.state === 'suspended') audioCtx.resume();
-            
-            for(let i = 0; i < 3; i++) {
-                const time = audioCtx.currentTime + (i * 0.35);
-                const oscillator = audioCtx.createOscillator();
-                const gainNode = audioCtx.createGain();
-                
-                oscillator.connect(gainNode);
-                gainNode.connect(audioCtx.destination);
-                
-                oscillator.type = 'square';
-                oscillator.frequency.setValueAtTime(800, time);
-                
-                gainNode.gain.setValueAtTime(0, time);
-                gainNode.gain.linearRampToValueAtTime(0.15, time + 0.05);
-                gainNode.gain.exponentialRampToValueAtTime(0.01, time + 0.25);
-                
-                oscillator.start(time);
-                oscillator.stop(time + 0.3);
-            }
-        }
+    // ============================================================
+    //  SSE — รับข้อมูลจาก Sender
+    // ============================================================
+    const SERVER = 'https://localhost:3443';
+    const messageLog = document.getElementById('messageLog');
+    const overlay       = document.getElementById('messageOverlay');
+    const overlayStatus = document.getElementById('overlayStatus');
+    const overlayLevel  = document.getElementById('overlayLevel');
+    let overlayTimeout;
 
-        // --- ระบบรับข้อมูลผ่าน SSE (Server-Sent Events) ---
-        const SERVER = 'https://localhost:3443';
-        const messageLog = document.getElementById('messageLog');
-        const overlay = document.getElementById('messageOverlay');
-        const overlayStatus = document.getElementById('overlayStatus');
-        const overlayLevel = document.getElementById('overlayLevel');
-        let overlayTimeout;
+    const eventSource = new EventSource(`${SERVER}/api/events`);
+    eventSource.onmessage = e => {
+        const msg = JSON.parse(e.data);
+        if (msg.type === 'CONNECTED') return;
+        handleMessage(msg);
+    };
+    eventSource.onerror = () => console.warn('[SSE] reconnecting...');
 
-        // เชื่อมต่อ SSE - เบราว์เซอร์จะ reconnect อัตโนมัติถ้าหลุด
-        const eventSource = new EventSource(`${SERVER}/api/events`);
+    function handleMessage(message) {
+        if (!message || message.type !== 'SALINE_UPDATE') return;
+        if (message.status === 'Critical') playAlertSound();
 
-        eventSource.onopen = () => {
-            console.log('[SSE] Connected to server');
-        };
+        overlayStatus.innerText = message.level === -1 ? 'ไม่พบข้อมูล' : message.status;
+        overlayLevel.innerText  = message.level === -1 ? '' : `ระดับน้ำเกลือ: ${message.level}%`;
+        overlay.className = `message-overlay overlay-${message.status.toLowerCase()} show`;
+        clearTimeout(overlayTimeout);
+        overlayTimeout = setTimeout(() => overlay.classList.remove('show'), 4000);
 
-        eventSource.onmessage = (event) => {
-            const message = JSON.parse(event.data);
-            if (message.type === 'CONNECTED') {
-                console.log('[SSE] Ready to receive signals');
-                return;
-            }
-            handleMessage(message);
-        };
-
-        eventSource.onerror = (e) => {
-            console.warn('[SSE] Connection lost, retrying...');
-        };
-        
-        function handleMessage(message) {
-            if (!message || message.type !== 'SALINE_UPDATE') return;
-
-            if (message.status === 'Critical') {
-                playAlertSound();
-            }
-
-            if (message.level === -1) {
-                overlayStatus.innerText = 'ไม่พบข้อมูล';
-                overlayLevel.innerText = '';
-            } else {
-                overlayStatus.innerText = message.status;
-                overlayLevel.innerText = `ระดับน้ำเกลือ: ${message.level}%`;
-            }
-
-            overlay.className = `message-overlay overlay-${message.status.toLowerCase()} show`;
-
-            clearTimeout(overlayTimeout);
-            overlayTimeout = setTimeout(() => {
-                overlay.classList.remove('show');
-            }, 4000);
-
-            const emptyState = document.querySelector('.empty-state');
-            if (emptyState) emptyState.remove();
-
-            const msgElement = document.createElement('div');
-            msgElement.className = `message-item border-${message.status.toLowerCase()}`;
-            const levelDisplay = message.level === -1 ? 'N/A' : `${message.level}%`;
-            msgElement.innerHTML = `
-                <div style="display: flex; justify-content: space-between; width: 100%; margin-bottom: 5px;">
-                    <span class="badge badge-${message.status.toLowerCase()}">${message.status} (${levelDisplay})</span>
-                    <span class="time">${message.timestamp}</span>
-                </div>
-                <span class="id">Transmission ID: ${message.id}</span>
-            `;
-            messageLog.prepend(msgElement);
-        }
+        const emptyState = document.querySelector('.empty-state');
+        if (emptyState) emptyState.remove();
+        const el = document.createElement('div');
+        el.className = `message-item border-${message.status.toLowerCase()}`;
+        const lvl = message.level === -1 ? 'N/A' : `${message.level}%`;
+        el.innerHTML = `
+            <div style="display:flex;justify-content:space-between;width:100%;margin-bottom:5px;">
+                <span class="badge badge-${message.status.toLowerCase()}">${message.status} (${lvl})</span>
+                <span class="time">${message.timestamp}</span>
+            </div>
+            <span class="id">Transmission ID: ${message.id}</span>`;
+        messageLog.prepend(el);
+    }
     </script>
 </body>
 </html>
