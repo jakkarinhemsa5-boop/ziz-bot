@@ -1,0 +1,270 @@
+:root {
+    --bg-color: #0b1121;
+    --card-bg: #1e293b;
+    --text-main: #f8fafc;
+    --text-muted: #94a3b8;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Inter', sans-serif;
+    background-color: var(--bg-color);
+    color: var(--text-main);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    overflow: hidden;
+    background-image: 
+        radial-gradient(circle at 15% 50%, rgba(59, 130, 246, 0.12), transparent 30%),
+        radial-gradient(circle at 85% 30%, rgba(16, 185, 129, 0.12), transparent 30%);
+}
+
+.container {
+    background: rgba(30, 41, 59, 0.7);
+    padding: 3rem;
+    border-radius: 24px;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    text-align: center;
+    width: 90%;
+    max-width: 500px;
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+}
+
+h1 {
+    font-size: 2.2rem;
+    font-weight: 800;
+    margin-bottom: 0.5rem;
+    background: linear-gradient(to right, #60a5fa, #34d399);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+p {
+    color: var(--text-muted);
+    margin-bottom: 2.5rem;
+    font-size: 0.95rem;
+}
+
+/* -----------------------------
+   Sender UI Styles (4 Buttons)
+----------------------------- */
+.button-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+}
+
+.level-btn {
+    color: white;
+    border: none;
+    padding: 1.5rem 1rem;
+    font-size: 1rem;
+    font-weight: 700;
+    border-radius: 16px;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 10px 25px -5px var(--accent-glow);
+    text-transform: uppercase;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.level-btn:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 20px 40px -10px var(--accent-glow), 0 0 15px var(--accent-glow);
+}
+
+.level-btn:active, .level-btn.clicked {
+    transform: translateY(2px);
+    box-shadow: 0 5px 10px -5px var(--accent-glow);
+}
+
+/* Colors for specific statuses */
+.btn-normal { background: linear-gradient(135deg, #059669, #10b981); --accent-glow: rgba(16, 185, 129, 0.5); }
+.btn-medium { background: linear-gradient(135deg, #d97706, #f59e0b); --accent-glow: rgba(245, 158, 11, 0.5); }
+.btn-low { background: linear-gradient(135deg, #c2410c, #f97316); --accent-glow: rgba(249, 115, 22, 0.5); }
+.btn-critical { background: linear-gradient(135deg, #b91c1c, #ef4444); --accent-glow: rgba(239, 68, 68, 0.5); }
+.btn-unknown { background: linear-gradient(135deg, #475569, #64748b); --accent-glow: rgba(100, 116, 139, 0.5); }
+
+/* -----------------------------
+   Receiver UI Styles (Camera)
+----------------------------- */
+.camera-container {
+    max-width: 800px;
+}
+
+.camera-wrapper {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16/9;
+    background: #000;
+    border-radius: 16px;
+    overflow: hidden;
+    margin-bottom: 2rem;
+    border: 2px solid rgba(255,255,255,0.1);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+}
+
+#webcam {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transform: scaleX(-1); /* Mirror camera for natural feel */
+}
+
+/* Message Overlay */
+.message-overlay {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0.8);
+    background: rgba(0, 0, 0, 0.8);
+    padding: 2rem 3rem;
+    border-radius: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    border: 3px solid transparent;
+    z-index: 5;
+    text-align: center;
+}
+
+.message-overlay.show {
+    opacity: 1;
+    visibility: visible;
+    transform: translate(-50%, -50%) scale(1);
+}
+
+.overlay-status {
+    font-size: 2.2rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+}
+
+.overlay-level {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: #fff;
+}
+
+/* Overlay Colors based on status */
+.overlay-normal { border-color: #10b981; box-shadow: 0 0 30px rgba(16, 185, 129, 0.5); }
+.overlay-normal .overlay-status { color: #10b981; }
+
+.overlay-medium { border-color: #f59e0b; box-shadow: 0 0 30px rgba(245, 158, 11, 0.5); }
+.overlay-medium .overlay-status { color: #f59e0b; }
+
+.overlay-low { border-color: #f97316; box-shadow: 0 0 30px rgba(249, 115, 22, 0.5); }
+.overlay-low .overlay-status { color: #f97316; }
+
+.overlay-critical { border-color: #ef4444; box-shadow: 0 0 40px rgba(239, 68, 68, 0.7); animation: pulseAlert 1s infinite; }
+.overlay-critical .overlay-status { color: #ef4444; }
+
+.overlay-unknown { border-color: #94a3b8; box-shadow: 0 0 30px rgba(148, 163, 184, 0.4); }
+.overlay-unknown .overlay-status { color: #94a3b8; }
+
+@keyframes pulseAlert {
+    0% { box-shadow: 0 0 20px rgba(239, 68, 68, 0.5); }
+    50% { box-shadow: 0 0 60px rgba(239, 68, 68, 0.9); }
+    100% { box-shadow: 0 0 20px rgba(239, 68, 68, 0.5); }
+}
+
+/* Message Log */
+.message-log {
+    background: rgba(0, 0, 0, 0.25);
+    border-radius: 16px;
+    padding: 1.5rem;
+    min-height: 180px;
+    max-height: 250px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    border: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.message-log::-webkit-scrollbar { width: 6px; }
+.message-log::-webkit-scrollbar-track { background: transparent; }
+.message-log::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 10px; }
+.message-log::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.2); }
+
+.empty-state {
+    color: var(--text-muted);
+    margin: auto;
+    font-style: italic;
+    opacity: 0.7;
+}
+
+.message-item {
+    background: rgba(255, 255, 255, 0.04);
+    padding: 1rem 1.25rem;
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    animation: slideDown 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    border-left: 4px solid;
+    backdrop-filter: blur(5px);
+}
+
+.badge {
+    padding: 0.25rem 0.6rem;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Badge Colors */
+.badge-normal { background: rgba(16, 185, 129, 0.15); color: #34d399; }
+.badge-medium { background: rgba(245, 158, 11, 0.15); color: #fbbf24; }
+.badge-low { background: rgba(249, 115, 22, 0.15); color: #fb923c; }
+.badge-critical { background: rgba(239, 68, 68, 0.15); color: #f87171; }
+.badge-unknown { background: rgba(100, 116, 139, 0.15); color: #94a3b8; }
+
+/* Border Colors */
+.border-normal { border-left-color: #10b981; }
+.border-medium { border-left-color: #f59e0b; }
+.border-low { border-left-color: #f97316; }
+.border-critical { border-left-color: #ef4444; }
+.border-unknown { border-left-color: #64748b; }
+
+.message-item .time {
+    font-size: 0.8rem;
+    color: #cbd5e1;
+    font-weight: 600;
+}
+
+.message-item .id {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    font-family: monospace;
+    background: rgba(0,0,0,0.2);
+    padding: 0.2rem 0.4rem;
+    border-radius: 4px;
+    margin-top: 5px;
+}
+
+@keyframes slideDown {
+    from { opacity: 0; transform: translateY(-15px) scale(0.98); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}

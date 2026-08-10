@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Saline Controller - Sender</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <h1>Saline Controller</h1>
+        <p>เลือกระดับน้ำเกลือปัจจุบันเพื่อส่งไปยังหน้าจอแสดงผล</p>
+        
+        <div class="button-grid">
+            <button class="level-btn btn-normal" data-level="100" data-status="Normal">100% (เต็ม)</button>
+            <button class="level-btn btn-medium" data-level="50" data-status="Medium">50% (ปานกลาง)</button>
+            <button class="level-btn btn-low" data-level="25" data-status="Low">25% (เหลือน้อย)</button>
+            <button class="level-btn btn-critical" data-level="0" data-status="Critical">0% (หมด)</button>
+            <button class="level-btn btn-unknown" data-level="-1" data-status="Unknown" style="grid-column: span 2;">ไม่พบข้อมูล (Not Found)</button>
+        </div>
+    </div>
+
+    <script>
+        const buttons = document.querySelectorAll('.level-btn');
+        const SERVER = 'https://localhost:3443';
+
+        buttons.forEach(btn => {
+            btn.addEventListener('click', async () => {
+                // Visual click animation
+                btn.classList.add('clicked');
+                setTimeout(() => btn.classList.remove('clicked'), 200);
+
+                const level = btn.getAttribute('data-level');
+                const status = btn.getAttribute('data-status');
+
+                const message = {
+                    type: 'SALINE_UPDATE',
+                    level: parseInt(level),
+                    status: status,
+                    timestamp: new Date().toLocaleTimeString('th-TH'),
+                    id: Math.random().toString(36).substring(2, 9).toUpperCase()
+                };
+
+                // ส่งผ่าน Server (SSE) — เชื่อมต่อได้ทุกกรณี
+                try {
+                    const res = await fetch(`${SERVER}/api/send`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(message)
+                    });
+                    const result = await res.json();
+                    console.log(`Delivered to ${result.delivered} receiver(s)`);
+                } catch(e) {
+                    console.error('Send failed:', e);
+                    alert('ไม่สามารถส่งข้อมูลได้ กรุณาตรวจสอบว่า Server กำลังทำงานอยู่');
+                }
+            });
+        });
+    </script>
+</body>
+</html>

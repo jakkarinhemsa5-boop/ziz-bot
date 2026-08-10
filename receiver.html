@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Patient Camera - Receiver</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div id="audioDisclaimer" style="position: absolute; top: 15px; left: 50%; transform: translateX(-50%); color: #94a3b8; font-size: 0.85rem; background: rgba(0,0,0,0.6); padding: 6px 16px; border-radius: 20px; cursor: pointer; border: 1px solid rgba(255,255,255,0.1); z-index: 10; transition: opacity 0.5s;">
+        🔊 คลิกลงบนหน้าจอนี้ 1 ครั้งเพื่อเปิดระบบเสียงแจ้งเตือน
+    </div>
+    
+    <div class="container camera-container">
+        <h1>Patient Camera Monitor</h1>
+        <p>กำลังเปิดกล้องและรอรับข้อมูลแจ้งเตือน...</p>
+        
+        <div class="camera-wrapper">
+            <!-- Camera Feed -->
+            <video id="webcam" autoplay playsinline muted></video>
+            
+            <!-- Message Overlay -->
+            <div id="messageOverlay" class="message-overlay hidden">
+                <span id="overlayStatus" class="overlay-status"></span>
+                <span id="overlayLevel" class="overlay-level"></span>
+            </div>
+        </div>
+        
+        <div id="messageLog" class="message-log mt-3">
+            <div class="empty-state">ยังไม่มีข้อมูลส่งเข้ามา...</div>
+        </div>
+    </div>
+
+    <script>
+        // --- ระบบเปิดกล้อง (Camera Setup) ---
+        async function initCamera() {
+            try {
+                // ขออนุญาตใช้กล้องจากเบราว์เซอร์
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+                const videoElement = document.getElementById('webcam');
+                videoElement.srcObject = stream;
+            } catch (err) {
+                console.error("Error accessing camera: ", err);
+                alert("ไม่สามารถเปิดกล้องได้ โปรดตรวจสอบการอนุญาต (Permissions) ในเบราว์เซอร์ของคุณ");
+            }
+        }
+        // เรียกใช้งานทันที
+        initCamera();
+
+        // --- ระบบเสียงแจ้งเตือน (Web Audio API) ---
+        let audioCtx = null;
+        const disclaimer = document.getElementById('audioDisclaimer');
+
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+            if (disclaimer) {
+                disclaimer.style.opacity = '0';
+                setTimeout(() => disclaimer.remove(), 500);
+            }
+        }
+        document.body.addEventListener('click', initAudio);
+
+        function playAlertSound() {
+            if (!audioCtx) return;
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            
+            for(let i = 0; i < 3; i++) {
+                const time = audioCtx.currentTime + (i * 0.35);
+                const oscillator = audioCtx.createOscillator();
+                const gainNode = audioCtx.createGain();
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+                
+                oscillator.type = 'square';
+                oscillator.frequency.setValueAtTime(800, time);
+                
+                gainNode.gain.setValueAtTime(0, time);
+                gainNode.gain.linearRampToValueAtTime(0.15, time + 0.05);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, time + 0.25);
+                
+                oscillator.start(time);
+                oscillator.stop(time + 0.3);
+            }
+        }
+
+        // --- ระบบรับข้อมูลผ่าน SSE (Server-Sent Events) ---
+        const SERVER = 'https://localhost:3443';
+        const messageLog = document.getElementById('messageLog');
+        const overlay = document.getElementById('messageOverlay');
+        const overlayStatus = document.getElementById('overlayStatus');
+        const overlayLevel = document.getElementById('overlayLevel');
+        let overlayTimeout;
+
+        // เชื่อมต่อ SSE - เบราว์เซอร์จะ reconnect อัตโนมัติถ้าหลุด
+        const eventSource = new EventSource(`${SERVER}/api/events`);
+
+        eventSource.onopen = () => {
+            console.log('[SSE] Connected to server');
+        };
+
+        eventSource.onmessage = (event) => {
+            const message = JSON.parse(event.data);
+            if (message.type === 'CONNECTED') {
+                console.log('[SSE] Ready to receive signals');
+                return;
+            }
+            handleMessage(message);
+        };
+
+        eventSource.onerror = (e) => {
+            console.warn('[SSE] Connection lost, retrying...');
+        };
+        
+        function handleMessage(message) {
+            if (!message || message.type !== 'SALINE_UPDATE') return;
+
+            if (message.status === 'Critical') {
+                playAlertSound();
+            }
+
+            if (message.level === -1) {
+                overlayStatus.innerText = 'ไม่พบข้อมูล';
+                overlayLevel.innerText = '';
+            } else {
+                overlayStatus.innerText = message.status;
+                overlayLevel.innerText = `ระดับน้ำเกลือ: ${message.level}%`;
+            }
+
+            overlay.className = `message-overlay overlay-${message.status.toLowerCase()} show`;
+
+            clearTimeout(overlayTimeout);
+            overlayTimeout = setTimeout(() => {
+                overlay.classList.remove('show');
+            }, 4000);
+
+            const emptyState = document.querySelector('.empty-state');
+            if (emptyState) emptyState.remove();
+
+            const msgElement = document.createElement('div');
+            msgElement.className = `message-item border-${message.status.toLowerCase()}`;
+            const levelDisplay = message.level === -1 ? 'N/A' : `${message.level}%`;
+            msgElement.innerHTML = `
+                <div style="display: flex; justify-content: space-between; width: 100%; margin-bottom: 5px;">
+                    <span class="badge badge-${message.status.toLowerCase()}">${message.status} (${levelDisplay})</span>
+                    <span class="time">${message.timestamp}</span>
+                </div>
+                <span class="id">Transmission ID: ${message.id}</span>
+            `;
+            messageLog.prepend(msgElement);
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,8 @@
+# ไม่อัปโหลดไฟล์ certificate (ข้อมูลส่วนตัว)
+cert.pfx
+
+# ไม่อัปโหลด node_modules ถ้ามี
+node_modules/
+
+# ไม่อัปโหลด log files
+*.log
