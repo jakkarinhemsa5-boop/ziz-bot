@@ -400,17 +400,26 @@
         if (!message || message.type !== 'SALINE_UPDATE') return;
         if (message.status === 'Critical') playAlertSound();
 
-        if (message.status === 'Critical') {
+        if (message.status === 'Critical' || message.status === 'Normal') {
+            const isNormal = message.status === 'Normal';
+            const cardClass = isNormal ? 'normal-alert-card' : 'critical-alert-card';
+            const icon = isNormal ? '✅' : '🚨';
+            const title = isNormal ? 'น้ำเกลือเต็ม' : 'น้ำเกลือใกล้หมด';
+            const subtitle = isNormal ? '✅ ตรวจพบระดับน้ำเกลือ 100%' : '🚨 ตรวจพบระดับน้ำเกลือ 0%!';
+            const badge = isNormal ? 'สถานะ: เต็ม (ปกติ)' : 'สถานะ: น้ำเกลือหมด';
+            const btnText = isNormal ? 'ปิดหน้าต่าง' : '🔕 ปิดเสียงเตือนชั่วคราว';
+
             overlay.innerHTML = `
-                <div class="critical-alert-card">
-                    <div class="siren-icon">🚨</div>
-                    <h2 class="alert-title">น้ำเกลือใกล้หมด</h2>
-                    <p class="alert-subtitle">🚨 ตรวจพบระดับน้ำเกลือ 0%!</p>
-                    <div class="patient-badge">สถานะ: น้ำเกลือหมด</div>
-                    <button class="mute-btn" onclick="muteAlert(event)">🔕 ปิดเสียงเตือนชั่วคราว</button>
+                <div class="${cardClass}">
+                    <div class="siren-icon">${icon}</div>
+                    <h2 class="alert-title">${title}</h2>
+                    <p class="alert-subtitle">${subtitle}</p>
+                    <div class="patient-badge">${badge}</div>
+                    <button class="mute-btn" onclick="muteAlert(event)">${btnText}</button>
                 </div>
             `;
-            overlay.className = 'message-overlay overlay-critical show';
+            const overlayClass = isNormal ? 'overlay-normal' : 'overlay-critical';
+            overlay.className = \`message-overlay \${overlayClass} custom-card-overlay show\`;
             clearTimeout(overlayTimeout);
             overlayTimeout = setTimeout(() => overlay.classList.remove('show'), 8000);
         } else {
