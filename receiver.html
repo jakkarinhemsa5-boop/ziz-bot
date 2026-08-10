@@ -419,7 +419,7 @@
                 </div>
             `;
             const overlayClass = isNormal ? 'overlay-normal' : 'overlay-critical';
-            overlay.className = \`message-overlay \${overlayClass} custom-card-overlay show\`;
+            overlay.className = `message-overlay ${overlayClass} custom-card-overlay show`;
             clearTimeout(overlayTimeout);
             overlayTimeout = setTimeout(() => overlay.classList.remove('show'), 8000);
         } else {
