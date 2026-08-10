@@ -175,11 +175,13 @@ p {
 .overlay-low { border-color: #f97316; box-shadow: 0 0 30px rgba(249, 115, 22, 0.5); }
 .overlay-low .overlay-status { color: #f97316; }
 
-.message-overlay.overlay-critical { 
+.message-overlay.custom-card-overlay { 
     background: transparent; 
     border: none; 
     padding: 0; 
     box-shadow: none; 
+}
+.message-overlay.overlay-critical {
     animation: pulseAlert 1.5s infinite; 
 }
 .overlay-critical .overlay-status { color: #ef4444; }
@@ -259,6 +261,74 @@ p {
 
 .critical-alert-card .mute-btn:hover {
     background: #fee2e2;
+}
+
+/* Normal Alert Card Custom Design */
+.normal-alert-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background: #ffffff;
+    border: 2px solid #10b981;
+    border-radius: 16px;
+    padding: 2rem;
+    text-align: center;
+    color: #333;
+    width: 380px;
+    box-shadow: 0 10px 25px rgba(16, 185, 129, 0.2);
+}
+
+.normal-alert-card .siren-icon {
+    font-size: 3.5rem;
+    margin-bottom: 1rem;
+    animation: bounce 1s infinite alternate;
+}
+
+@keyframes bounce {
+    0% { transform: translateY(0); }
+    100% { transform: translateY(-10px); }
+}
+
+.normal-alert-card .alert-title {
+    color: #10b981;
+    font-size: 1.5rem;
+    font-weight: 800;
+    margin-bottom: 1rem;
+}
+
+.normal-alert-card .alert-subtitle {
+    color: #475569;
+    font-size: 0.95rem;
+    margin-bottom: 1.5rem;
+    font-weight: 600;
+}
+
+.normal-alert-card .patient-badge {
+    background: #d1fae5;
+    color: #059669;
+    padding: 0.6rem 1.5rem;
+    border-radius: 999px;
+    font-weight: 700;
+    font-size: 0.95rem;
+    margin-bottom: 1.5rem;
+}
+
+.normal-alert-card .mute-btn {
+    background: #ecfdf5;
+    color: #10b981;
+    border: 1px solid #10b981;
+    padding: 0.8rem;
+    border-radius: 8px;
+    width: 100%;
+    font-weight: 700;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: 'Inter', sans-serif;
+}
+
+.normal-alert-card .mute-btn:hover {
+    background: #d1fae5;
 }
 
 /* Message Log */
