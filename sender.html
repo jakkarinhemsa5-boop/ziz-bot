@@ -23,7 +23,7 @@
 
     <script>
         const buttons = document.querySelectorAll('.level-btn');
-        const SERVER = 'https://localhost:3443';
+        const SERVER = window.location.origin;
 
         buttons.forEach(btn => {
             btn.addEventListener('click', async () => {
