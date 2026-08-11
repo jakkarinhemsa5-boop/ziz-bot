@@ -1,26 +1,23 @@
-const https = require('https');
+const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const { URL } = require('url');
 
-const PORT = 3443;
-
-const options = {
-    pfx: fs.readFileSync(path.join(__dirname, 'cert.pfx')),
-    passphrase: 'devpassword',
-};
+const PORT = 3000;
 
 const mimeTypes = {
     '.html': 'text/html; charset=utf-8',
     '.css': 'text/css',
     '.js': 'application/javascript',
+    '.png': 'image/png',
 };
 
 // เก็บ SSE clients ทั้งหมดที่กำลัง listen อยู่
 let sseClients = [];
 
-const server = https.createServer(options, (req, res) => {
-    const urlObj = new URL(req.url, `https://localhost:${PORT}`);
+const server = http.createServer((req, res) => {
+    // กำหนด base ให้ URL parser ไม่พัง
+    const urlObj = new URL(req.url, `http://localhost:${PORT}`);
     const pathname = urlObj.pathname;
 
     // --- CORS Headers ---
@@ -43,11 +40,9 @@ const server = https.createServer(options, (req, res) => {
         });
         res.write('data: {"type":"CONNECTED"}\n\n');
 
-        // เพิ่ม client เข้าลิสต์
         sseClients.push(res);
         console.log(`[SSE] Client connected. Total: ${sseClients.length}`);
 
-        // ลบ client เมื่อปิดหน้าเว็บ
         req.on('close', () => {
             sseClients = sseClients.filter(c => c !== res);
             console.log(`[SSE] Client disconnected. Total: ${sseClients.length}`);
@@ -64,7 +59,6 @@ const server = https.createServer(options, (req, res) => {
                 const message = JSON.parse(body);
                 console.log(`[SEND] Broadcasting to ${sseClients.length} client(s):`, message.status);
 
-                // ส่งข้อมูลไปยัง SSE clients ทุกตัว
                 const payload = `data: ${JSON.stringify(message)}\n\n`;
                 sseClients.forEach(client => {
                     try { client.write(payload); } catch(e) {}
@@ -100,10 +94,10 @@ const server = https.createServer(options, (req, res) => {
 
 server.listen(PORT, () => {
     console.log('');
-    console.log('✅ HTTPS Server (with SSE) is running!');
+    console.log('✅ HTTP Server (with SSE) is running!');
     console.log('');
-    console.log('🎮 Controller (Sender):  https://localhost:' + PORT + '/sender.html');
-    console.log('📺 Display  (Receiver):  https://localhost:' + PORT + '/receiver.html');
+    console.log('🎮 Controller (Sender):  http://localhost:' + PORT + '/sender.html');
+    console.log('📺 Display  (Receiver):  http://localhost:' + PORT + '/receiver.html');
     console.log('');
     console.log('Press Ctrl+C to stop the server.');
 });
