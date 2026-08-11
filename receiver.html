@@ -3,50 +3,113 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Patient Camera - Receiver</title>
-    <link rel="stylesheet" href="style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <title>Patient Camera - Dashboard</title>
+    <link rel="stylesheet" href="receiver.css">
 </head>
 <body>
     <!-- ปุ่มเปิดเสียง -->
-    <div id="audioDisclaimer" onclick="enableSound()" style="position:absolute;top:15px;left:50%;transform:translateX(-50%);color:#fff;font-size:0.9rem;font-weight:700;background:linear-gradient(135deg,#dc2626,#ef4444);padding:10px 22px;border-radius:999px;cursor:pointer;z-index:100;transition:opacity 0.5s;box-shadow:0 4px 20px rgba(239,68,68,0.5);white-space:nowrap;">
-        🔊 แตะที่นี่เพื่อเปิดเสียงแจ้งเตือน
+    <div id="audioDisclaimer" onclick="enableSound()" style="position:absolute;top:15px;left:50%;transform:translateX(-50%);color:#fff;font-size:0.8rem;font-weight:700;background:var(--accent-red);padding:6px 16px;border-radius:999px;cursor:pointer;z-index:100;box-shadow:0 2px 10px rgba(239,68,68,0.4);">
+        🔊 แตะเพื่อเปิดเสียงเตือน
     </div>
 
-    <div class="container camera-container">
-        <h1>Patient Camera Monitor</h1>
-        <p id="statusText">กำลังเปิดกล้อง...</p>
+    <!-- Navbar -->
+    <nav class="navbar">
+        <div class="nav-brand" onclick="toggleControls()">
+            <img src="logo.png" alt="Logo" class="nav-logo">
+            WARD_PATROL_VERSION6 
+            <span class="version">AI Multi-Bed Patrol (Saline Vision)</span>
+        </div>
+        <div class="nav-status">BOARD ONLINE - 192.168.x.x</div>
+    </nav>
 
-        <div class="camera-wrapper" id="cameraWrapper">
-            <video id="webcam" autoplay playsinline muted></video>
+    <!-- Hidden Controls (Popup) -->
+    <div id="controlsPopup" class="hidden-controls">
+        <button id="captureBtn" class="hidden-btn" onclick="startCapture()">📸 จำวัตถุ</button>
+        <button class="hidden-btn" onclick="resetTracker()">🗑️ รีเซ็ต</button>
+        <span id="matchInfo" style="font-size:0.75rem;color:var(--text-muted)"></span>
+    </div>
 
-            <!-- Canvas วาด bounding box -->
-            <canvas id="detectionCanvas"></canvas>
-
-            <!-- Canvas รับการลากเลือก template -->
-            <canvas id="selCanvas"></canvas>
-
-            <!-- Overlay แจ้งเตือนสถานะน้ำเกลือ -->
-            <div id="messageOverlay" class="message-overlay hidden">
-                <span id="overlayStatus" class="overlay-status"></span>
-                <span id="overlayLevel" class="overlay-level"></span>
+    <div class="dashboard">
+        <!-- Left Sidebar -->
+        <aside class="sidebar-left">
+            <div class="panel">
+                <div class="panel-header" style="color:var(--accent-orange)">
+                    ⚡ MASTER SYSTEM
+                </div>
+                <div class="panel-content">
+                    <button class="btn-primary">🔒 START PATROL</button>
+                </div>
             </div>
-        </div>
+            
+            <div class="panel">
+                <div class="panel-header">🛏️ WARD BEDS (1-2)</div>
+                <div class="panel-content ward-beds">
+                    <div class="bed-card active">
+                        <strong>เตียงที่ 1</strong><br>สมชาย ผ่าตัดใจดี<br>ขา
+                    </div>
+                    <div class="bed-card">
+                        <strong>เตียงที่ 2</strong><br>สมศรี รักษ์ดี<br>ทั่วไปดี
+                    </div>
+                </div>
+            </div>
 
-        <!-- แถบปุ่มควบคุม tracker -->
-        <div style="display:flex;gap:0.75rem;justify-content:center;margin-bottom:1.5rem;flex-wrap:wrap;">
-            <button id="captureBtn" onclick="startCapture()" style="background:linear-gradient(135deg,#2563eb,#3b82f6);color:#fff;border:none;padding:0.75rem 1.5rem;border-radius:12px;font-weight:700;font-size:0.95rem;cursor:pointer;font-family:'Inter',sans-serif;box-shadow:0 4px 15px rgba(59,130,246,0.4);transition:all 0.2s;">
-                📸 จำวัตถุ
-            </button>
-            <button onclick="resetTracker()" style="background:rgba(255,255,255,0.07);color:#94a3b8;border:1px solid rgba(255,255,255,0.1);padding:0.75rem 1.5rem;border-radius:12px;font-weight:700;font-size:0.95rem;cursor:pointer;font-family:'Inter',sans-serif;transition:all 0.2s;">
-                🗑️ รีเซ็ต
-            </button>
-            <div id="matchInfo" style="display:flex;align-items:center;background:rgba(0,0,0,0.3);border-radius:12px;padding:0.5rem 1rem;color:#64748b;font-size:0.8rem;font-family:'Inter',sans-serif;"></div>
-        </div>
+            <div class="panel" style="flex:1">
+                <div class="panel-header">👤 PATIENT INFO (EMR)</div>
+                <div class="panel-content" style="font-size:0.8rem;color:var(--text-muted);">
+                    <p style="color:var(--accent-red);margin-bottom:1rem;">📌 ขั้นตอนแรก: บันทึกข้อมูลและประวัติผู้ป่วยและสแกนสายยางที่ให้ครบถ้วนก่อนเริ่มเดินตรวจ</p>
+                    <label>เตียง:</label>
+                    <select style="width:100%;margin:0.5rem 0 1rem;padding:0.4rem;border:1px solid var(--border-color);border-radius:4px;"><option>เตียง 1</option></select>
+                    
+                    <div style="border:1px solid var(--border-color);border-radius:4px;padding:0.5rem;margin-bottom:0.5rem;">ผู้ป่วยผ่าตัดขา (Leg Injury) <span style="float:right">⚪</span></div>
+                    <div style="border:1px solid var(--accent-blue);background:#f0f9ff;border-radius:4px;padding:0.5rem;margin-bottom:1rem;color:var(--accent-blue);font-weight:600;">สแกนเตียงนี้ (Active) <span style="float:right">🔵</span></div>
+                    <button style="width:100%;padding:0.5rem;background:white;border:1px solid var(--border-color);border-radius:4px;cursor:pointer;">💾 บันทึก EMR</button>
+                </div>
+            </div>
+        </aside>
 
-        <div id="messageLog" class="message-log">
-            <div class="empty-state">ยังไม่มีข้อมูลส่งเข้ามา...</div>
-        </div>
+        <!-- Center Column -->
+        <main class="main-column">
+            <!-- Camera Container -->
+            <div class="camera-container" id="cameraWrapper">
+                <div class="camera-overlay-ui" id="statusText">กำลังเปิดกล้อง...</div>
+                <video id="webcam" autoplay playsinline muted></video>
+                <canvas id="detectionCanvas"></canvas>
+                <canvas id="selCanvas"></canvas>
+                
+                <div id="messageOverlay" class="message-overlay hidden">
+                    <span id="overlayStatus"></span>
+                    <span id="overlayLevel"></span>
+                </div>
+            </div>
+
+
+        </main>
+
+        <!-- Right Sidebar -->
+        <aside class="sidebar-right">
+            <div class="panel">
+                <div class="panel-header" style="color:var(--accent-red)">🚨 ALARMS</div>
+                <div class="panel-content" id="alarmContainer">
+                    <div class="alarm-card normal" id="alarmBed1">
+                        <div class="alarm-title">เตียงที่ 1 <span style="color:var(--text-muted);font-size:0.7rem;background:#f3f4f6;padding:2px 6px;border-radius:4px;">ปกติ</span></div>
+                        <div style="font-size:0.8rem;margin-top:0.2rem">คนไข้: สมชาย ใจดี</div>
+                        <div class="alarm-desc normal">✅ ระดับน้ำเกลือปกติ</div>
+                    </div>
+                    <div class="alarm-card normal" id="alarmBed2">
+                        <div class="alarm-title">เตียงที่ 2 <span style="color:var(--text-muted);font-size:0.7rem;background:#f3f4f6;padding:2px 6px;border-radius:4px;">ปกติ</span></div>
+                        <div style="font-size:0.8rem;margin-top:0.2rem">คนไข้: สมศรี รักษ์ดี</div>
+                        <div class="alarm-desc normal">✅ สภาพร่างกายปกติ</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel" style="flex:1">
+                <div class="panel-header">📑 WARD EVENT LOGS</div>
+                <div class="panel-content message-log" id="messageLog">
+                    <div class="empty-state" style="padding:1rem;text-align:center;">ยังไม่มีข้อมูล...</div>
+                </div>
+            </div>
+        </aside>
     </div>
 
     <script>
@@ -69,7 +132,7 @@
             video.onloadedmetadata = () => {
                 video.play();
                 resizeCanvases();
-                statusText.textContent = 'กล้องพร้อมแล้ว — กด 📸 จำวัตถุ เพื่อเริ่มติดตาม';
+                statusText.textContent = 'IDLE - กล้องพร้อมแล้ว (นำเมาส์ไปชี้ด้านล่างสุดเพื่อตั้งค่า)';
                 detectLoop();
             };
         } catch(e) {
@@ -85,11 +148,16 @@
             c.style.position = 'absolute';
             c.style.top = c.style.left = '0';
             c.style.width = '100%'; c.style.height = '100%';
-            c.style.transform = 'scaleX(-1)';   // mirror เหมือน video
+            c.style.transform = 'scaleX(-1)'; 
         });
-        selCanvas.style.zIndex = '10';   // รับ mouse events อยู่บนสุด
+        selCanvas.style.zIndex = '10'; 
         detCanvas.style.zIndex = '4';
         selCanvas.style.cursor = 'crosshair';
+    }
+
+    function toggleControls() {
+        const popup = document.getElementById('controlsPopup');
+        popup.classList.toggle('show');
     }
 
     initCamera();
@@ -104,19 +172,17 @@
     function startCapture() {
         captureMode = true;
         statusText.textContent = '🖱️ ลากเลือกวัตถุที่ต้องการติดตามบนภาพกล้อง';
-        document.getElementById('captureBtn').style.background = 'linear-gradient(135deg,#d97706,#f59e0b)';
+        document.getElementById('captureBtn').style.background = 'var(--accent-orange)';
     }
 
     selCanvas.addEventListener('mousedown', e => {
         if (!captureMode) return;
         isSelecting = true;
         const r = selCanvas.getBoundingClientRect();
-        // แปลง CSS px → pixel coords (mirrored)
         const cssX = e.clientX - r.left;
         const cssY = e.clientY - r.top;
         const scaleX = selCanvas.width  / r.width;
         const scaleY = selCanvas.height / r.height;
-        // mirror กลับ (canvas ถูก scaleX(-1))
         const px = (r.width - cssX) * scaleX;
         const py = cssY * scaleY;
         sel.x0 = sel.x1 = px;
@@ -133,7 +199,6 @@
         sel.x1 = (r.width - cssX) * scaleX;
         sel.y1 = cssY * scaleY;
 
-        // วาดกรอบเลือก
         selCtx.clearRect(0, 0, selCanvas.width, selCanvas.height);
         const x = Math.min(sel.x0, sel.x1);
         const y = Math.min(sel.y0, sel.y1);
@@ -161,19 +226,17 @@
         if (w < 10 || h < 10) return;
         captureTemplate(x, y, w, h);
         captureMode = false;
-        document.getElementById('captureBtn').style.background = 'linear-gradient(135deg,#2563eb,#3b82f6)';
+        document.getElementById('captureBtn').style.background = 'var(--text-muted)';
     });
 
-    // Touch support
+    // Touch support (simplified)
     selCanvas.addEventListener('touchstart', e => {
         e.preventDefault();
-        const t = e.touches[0];
-        selCanvas.dispatchEvent(new MouseEvent('mousedown', { clientX: t.clientX, clientY: t.clientY }));
+        selCanvas.dispatchEvent(new MouseEvent('mousedown', { clientX: e.touches[0].clientX, clientY: e.touches[0].clientY }));
     });
     selCanvas.addEventListener('touchmove', e => {
         e.preventDefault();
-        const t = e.touches[0];
-        selCanvas.dispatchEvent(new MouseEvent('mousemove', { clientX: t.clientX, clientY: t.clientY }));
+        selCanvas.dispatchEvent(new MouseEvent('mousemove', { clientX: e.touches[0].clientX, clientY: e.touches[0].clientY }));
     });
     selCanvas.addEventListener('touchend', e => {
         e.preventDefault();
@@ -183,67 +246,53 @@
     // ============================================================
     //  TEMPLATE MATCHING
     // ============================================================
-    const SCALE = 0.2;     // ย่อ 5x เพื่อ performance
-    const STEP  = 2;       // ข้าม pixel ใน search
-    const THRESHOLD = 0.55; // NCC threshold (0-1)
-    let tmpl = null;       // { data, w, h, origW, origH }
-    let tracking = false;
+    const SCALE = 0.2, STEP = 2, THRESHOLD = 0.55;
+    let tmpl = null, tracking = false;
 
     function captureTemplate(x, y, w, h) {
-        const sw = Math.max(1, Math.floor(w * SCALE));
-        const sh = Math.max(1, Math.floor(h * SCALE));
-
+        const sw = Math.max(1, Math.floor(w * SCALE)), sh = Math.max(1, Math.floor(h * SCALE));
         const tmpC = document.createElement('canvas');
         tmpC.width = sw; tmpC.height = sh;
         const tmpCtx = tmpC.getContext('2d');
         tmpCtx.drawImage(video, x, y, w, h, 0, 0, sw, sh);
-
-        const data = tmpCtx.getImageData(0, 0, sw, sh).data;
-        tmpl = { data, w: sw, h: sh, origW: w, origH: h };
+        
+        tmpl = { data: tmpCtx.getImageData(0, 0, sw, sh).data, w: sw, h: sh, origW: w, origH: h };
         tracking = true;
-        statusText.textContent = `✅ จำวัตถุแล้ว (${w}×${h}px) — กำลังติดตาม...`;
+        statusText.textContent = `TRACKING ACTIVE (${w}×${h}px)`;
         matchInfo.textContent = '';
     }
 
     function resetTracker() {
-        tmpl = null;
-        tracking = false;
+        tmpl = null; tracking = false;
         detCtx.clearRect(0, 0, detCanvas.width, detCanvas.height);
         matchInfo.textContent = '';
-        statusText.textContent = 'กด 📸 จำวัตถุ เพื่อเริ่มติดตามใหม่';
+        statusText.textContent = 'IDLE';
     }
 
     function doMatch() {
         if (!tmpl || !tracking) return null;
         const vw = video.videoWidth, vh = video.videoHeight;
-        const sw = Math.floor(vw * SCALE);
-        const sh = Math.floor(vh * SCALE);
+        const sw = Math.floor(vw * SCALE), sh = Math.floor(vh * SCALE);
         const tw = tmpl.w, th = tmpl.h;
         if (tw > sw || th > sh) return null;
 
-        // ดึง pixel จาก video frame ที่ย่อแล้ว
         const fC = document.createElement('canvas');
         fC.width = sw; fC.height = sh;
         fC.getContext('2d').drawImage(video, 0, 0, sw, sh);
         const fd = fC.getContext('2d').getImageData(0, 0, sw, sh).data;
         const td = tmpl.data;
 
-        // คำนวณ template mean + std
         const tp = tw * th;
         let tmR=0, tmG=0, tmB=0;
         for (let i=0; i<td.length; i+=4) { tmR+=td[i]; tmG+=td[i+1]; tmB+=td[i+2]; }
         tmR/=tp; tmG/=tp; tmB/=tp;
         let tVar=0;
-        for (let i=0; i<td.length; i+=4) {
-            tVar += (td[i]-tmR)**2 + (td[i+1]-tmG)**2 + (td[i+2]-tmB)**2;
-        }
+        for (let i=0; i<td.length; i+=4) { tVar += (td[i]-tmR)**2 + (td[i+1]-tmG)**2 + (td[i+2]-tmB)**2; }
         const tStd = Math.sqrt(tVar/tp) || 1;
 
         let best=-Infinity, bx=0, by=0;
-
         for (let y=0; y<=sh-th; y+=STEP) {
             for (let x=0; x<=sw-tw; x+=STEP) {
-                // region mean
                 let fmR=0,fmG=0,fmB=0;
                 for (let ty=0; ty<th; ty++) {
                     for (let tx=0; tx<tw; tx++) {
@@ -269,66 +318,35 @@
                 if (ncc > best) { best=ncc; bx=x; by=y; }
             }
         }
-
         return { x: bx/SCALE, y: by/SCALE, w: tmpl.origW, h: tmpl.origH, score: best };
     }
 
-    // ============================================================
-    //  DETECTION LOOP
-    // ============================================================
     let frameCount = 0;
     function detectLoop() {
         frameCount++;
-
-        if (tracking && frameCount % 4 === 0) { // รัน AI ทุก 4 frames
+        if (tracking && frameCount % 4 === 0) {
             const match = doMatch();
             detCtx.clearRect(0, 0, detCanvas.width, detCanvas.height);
 
             if (match && match.score >= THRESHOLD) {
                 const { x, y, w, h, score } = match;
                 const pct = Math.round(score * 100);
-                matchInfo.textContent = `🎯 ความมั่นใจ: ${pct}%`;
-                matchInfo.style.color = score > 0.7 ? '#10b981' : '#f59e0b';
-
-                // วาดกรอบ
-                detCtx.strokeStyle = '#3b82f6';
+                matchInfo.textContent = `🎯 ${pct}%`;
+                
+                detCtx.strokeStyle = '#0ea5e9';
                 detCtx.lineWidth = 3;
-                detCtx.shadowColor = '#3b82f6';
-                detCtx.shadowBlur = 10;
                 detCtx.strokeRect(x, y, w, h);
-
-                // corner accents
-                const cl = Math.min(w, h) * 0.18;
-                detCtx.lineWidth = 5;
-                [[x,y],[x+w,y],[x,y+h],[x+w,y+h]].forEach(([cx,cy], i) => {
-                    const dx = i%2===0 ? cl : -cl;
-                    const dy = i<2 ? cl : -cl;
-                    detCtx.beginPath();
-                    detCtx.moveTo(cx+dx, cy); detCtx.lineTo(cx, cy); detCtx.lineTo(cx, cy+dy);
-                    detCtx.stroke();
-                });
-
-                // label
-                detCtx.shadowBlur = 0;
-                detCtx.font = 'bold 15px Inter, sans-serif';
-                const label = `💉 วัตถุ ${pct}%`;
-                const tw2 = detCtx.measureText(label).width;
-                const lbY = y > 28 ? y - 6 : y + h + 22;
-                detCtx.fillStyle = '#3b82f6';
-                detCtx.fillRect(x-1, lbY-18, tw2+14, 24);
-                detCtx.fillStyle = '#fff';
-                detCtx.fillText(label, x+6, lbY-1);
-            } else if (match) {
-                matchInfo.textContent = `👁️ ไม่พบวัตถุ (${Math.round(match.score*100)}%)`;
-                matchInfo.style.color = '#64748b';
+                
+                detCtx.fillStyle = '#0ea5e9';
+                detCtx.font = 'bold 12px Inter';
+                detCtx.fillText(`Saline IV: ${pct}%`, x, y - 5);
             }
         }
-
         requestAnimationFrame(detectLoop);
     }
 
     // ============================================================
-    //  AUDIO
+    //  AUDIO & SSE
     // ============================================================
     let audioCtx = null, audioReady = false;
     const disclaimer = document.getElementById('audioDisclaimer');
@@ -337,32 +355,10 @@
         if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         audioCtx.resume().then(() => {
             audioReady = true;
-            playBeep(440, 0.08, 0.15);
-            if (disclaimer) {
-                disclaimer.innerHTML = '✅ เปิดเสียงแล้ว!';
-                disclaimer.style.background = 'linear-gradient(135deg,#059669,#10b981)';
-                disclaimer.style.cursor = 'default';
-                setTimeout(() => {
-                    disclaimer.style.opacity = '0';
-                    setTimeout(() => disclaimer.remove(), 500);
-                }, 1500);
-            }
+            if (disclaimer) disclaimer.remove();
         });
     }
     document.body.addEventListener('click', () => { if (!audioReady) enableSound(); });
-
-    function playBeep(freq, vol, dur) {
-        if (!audioCtx) return;
-        const osc = audioCtx.createOscillator();
-        const gain = audioCtx.createGain();
-        osc.connect(gain); gain.connect(audioCtx.destination);
-        osc.type = 'square';
-        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
-        gain.gain.setValueAtTime(0, audioCtx.currentTime);
-        gain.gain.linearRampToValueAtTime(vol, audioCtx.currentTime + 0.05);
-        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
-        osc.start(audioCtx.currentTime); osc.stop(audioCtx.currentTime + dur + 0.05);
-    }
 
     function playAlertSound() {
         if (!audioCtx) { enableSound(); return; }
@@ -380,57 +376,118 @@
         }
     }
 
-    // ============================================================
-    //  SSE — รับข้อมูลจาก Sender
-    // ============================================================
-    const urlParams = new URLSearchParams(window.location.search);
-    let defaultServer = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
-        ? 'https://localhost:3443' 
-        : 'https://192.168.36.52:3443';
-    let SERVER = urlParams.get('server') || localStorage.getItem('SERVER_URL') || defaultServer;
-
+    const SERVER = window.location.origin;
     const messageLog = document.getElementById('messageLog');
-    const overlay       = document.getElementById('messageOverlay');
-    const overlayStatus = document.getElementById('overlayStatus');
-    const overlayLevel  = document.getElementById('overlayLevel');
+    const overlay = document.getElementById('messageOverlay');
     let overlayTimeout;
 
-    let eventSource;
-    function initSSE() {
-        if (eventSource) eventSource.close();
-        eventSource = new EventSource(`${SERVER}/api/events`);
-        eventSource.onmessage = e => {
-            const msg = JSON.parse(e.data);
-            if (msg.type === 'CONNECTED') return;
-            handleMessage(msg);
-        };
-        eventSource.onerror = () => console.warn('[SSE] reconnecting to ' + SERVER + '...');
-    }
-    initSSE();
+    const eventSource = new EventSource(`${SERVER}/api/events`);
+    eventSource.onmessage = e => {
+        const msg = JSON.parse(e.data);
+        if (msg.type === 'CONNECTED') return;
+        handleMessage(msg);
+    };
 
     function handleMessage(message) {
         if (!message || message.type !== 'SALINE_UPDATE') return;
-        if (message.status === 'Critical') playAlertSound();
+        
+        const isNormal = message.status === 'Normal';
+        
+        let patientName = 'ซัควาน หะยีอาแว'; // Default
+        if (message.level === 0) patientName = 'ซัควาน หะยีอาแว';
+        else if (message.level === 25) patientName = 'คอลิส ดอเล๊าะ';
+        else if (message.level === 50) patientName = 'จักรินทร์ เหมสัน';
 
-        overlayStatus.innerText = message.level === -1 ? 'ไม่พบข้อมูล' : message.status;
-        overlayLevel.innerText  = message.level === -1 ? '' : `ระดับน้ำเกลือ: ${message.level}%`;
-        overlay.className = `message-overlay overlay-${message.status.toLowerCase()} show`;
-        clearTimeout(overlayTimeout);
-        overlayTimeout = setTimeout(() => overlay.classList.remove('show'), 4000);
+        // --- 1. Update Right Sidebar Alarm Card ---
+        const alarmBed1 = document.getElementById('alarmBed1');
+        if (isNormal) {
+            alarmBed1.className = 'alarm-card normal';
+            alarmBed1.innerHTML = `
+                <div class="alarm-title">เตียงที่ 1 <span style="color:var(--text-muted);font-size:0.7rem;background:#f3f4f6;padding:2px 6px;border-radius:4px;">ปกติ</span></div>
+                <div style="font-size:0.8rem;margin-top:0.2rem">คนไข้: ${patientName}</div>
+                <div class="alarm-desc normal">✅ สภาพร่างกายปกติ (น้ำเกลือปกติ)</div>
+            `;
+        } else {
+            playAlertSound();
+            let alarmDesc = '🚨 ค้นพบคนไข้ตกเตียง/น้ำเกลือหมด!';
+            if (message.level === 25) alarmDesc = '🚨 ตรวจพบผู้ป่วยลุกจากเตียง!';
+            if (message.level === 50) alarmDesc = '🚨 ตรวจพบผู้ป่วยตกเตียง!';
+            if (message.level === 0) alarmDesc = '🚨 ตรวจพบน้ำเกลือใกล้หมด!';
 
+            alarmBed1.className = 'alarm-card';
+            alarmBed1.innerHTML = `
+                <div class="alarm-title">เตียงที่ 1 <span style="color:white;font-size:0.7rem;background:var(--accent-red);padding:2px 6px;border-radius:4px;">ฉุกเฉิน</span></div>
+                <div style="font-size:0.8rem;margin-top:0.2rem">คนไข้: ${patientName}</div>
+                <div class="alarm-desc">${alarmDesc}</div>
+            `;
+        }
+
+        // --- 2. Center Screen Overlay Popup ---
+        if (message.status === 'Critical' || message.status === 'Normal' || message.level === 25 || message.level === 50) {
+            const cardClass = isNormal ? 'normal-alert-card' : 'critical-alert-card';
+            const icon = isNormal ? '✅' : '🚨';
+            const title = 'แจ้งเตือนสถานะผู้ป่วย / เตียง';
+            
+            let msg = '';
+            if (isNormal) {
+                msg = '✅ ตรวจพบน้ำเกลือปกติ!';
+            } else if (message.level === 0) {
+                msg = '🚨 ตรวจพบน้ำเกลือใกล้หมด!';
+            } else if (message.level === 25) {
+                msg = '🚨 ตรวจพบผู้ป่วยลุกจากเตียง!';
+            } else if (message.level === 50) {
+                msg = '🚨 ตรวจพบผู้ป่วยตกเตียง!';
+            } else {
+                msg = '🚨 ตรวจพบความผิดปกติ!';
+            }
+
+            const btnText = isNormal ? 'ปิดหน้าต่าง' : '🔕 ปิดเสียงเตือนชั่วคราว';
+
+            overlay.innerHTML = `
+                <div class="${cardClass}">
+                    <div style="font-size:3rem;margin-bottom:0.5rem">${icon}</div>
+                    <h2 class="alert-title">${title}</h2>
+                    <p class="alert-message">${msg}</p>
+                    <div class="alert-patient-badge">คนไข้: ${patientName}</div>
+                    <button class="dismiss-btn" onclick="muteAlert(event)">${btnText}</button>
+                </div>
+            `;
+            overlay.className = 'message-overlay show';
+            clearTimeout(overlayTimeout);
+            overlayTimeout = setTimeout(() => overlay.classList.remove('show'), 8000);
+        } else {
+            overlay.innerHTML = `
+                <span class="overlay-status">${message.level === -1 ? 'ไม่พบข้อมูล' : message.status}</span>
+                <span class="overlay-level">${message.level === -1 ? '' : `ระดับน้ำเกลือ: ${message.level}%`}</span>
+            `;
+            overlay.className = `message-overlay overlay-${message.status.toLowerCase()} show`;
+            clearTimeout(overlayTimeout);
+            overlayTimeout = setTimeout(() => overlay.classList.remove('show'), 4000);
+        }
+
+        // --- 3. Right Sidebar Event Log ---
         const emptyState = document.querySelector('.empty-state');
         if (emptyState) emptyState.remove();
         const el = document.createElement('div');
-        el.className = `message-item border-${message.status.toLowerCase()}`;
-        const lvl = message.level === -1 ? 'N/A' : `${message.level}%`;
+        el.className = `log-item ${isNormal ? 'log-success' : 'log-error'}`;
+        
+        let logMsg = message.status;
+        if (message.level === 25) logMsg = "ผู้ป่วยลุกจากเตียง (25%)";
+        if (message.level === 50) logMsg = "ผู้ป่วยตกเตียง (50%)";
+        if (message.level === 0) logMsg = "น้ำเกลือใกล้หมด (0%)";
+
         el.innerHTML = `
-            <div style="display:flex;justify-content:space-between;width:100%;margin-bottom:5px;">
-                <span class="badge badge-${message.status.toLowerCase()}">${message.status} (${lvl})</span>
-                <span class="time">${message.timestamp}</span>
-            </div>
-            <span class="id">Transmission ID: ${message.id}</span>`;
+            <div><strong>[${message.timestamp}]</strong> ${logMsg}</div>
+            <div style="font-size:0.7rem;color:var(--text-muted)">ID: ${message.id.substring(0,8)}...</div>
+        `;
         messageLog.prepend(el);
     }
+
+    window.muteAlert = function(e) {
+        e.stopPropagation();
+        const overlay = document.getElementById('messageOverlay');
+        if (overlay) overlay.classList.remove('show');
+    };
     </script>
 </body>
 </html>
