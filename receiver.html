@@ -383,54 +383,40 @@
     // ============================================================
     //  SSE — รับข้อมูลจาก Sender
     // ============================================================
-    const SERVER = window.location.origin;
+    const urlParams = new URLSearchParams(window.location.search);
+    let defaultServer = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
+        ? 'https://localhost:3443' 
+        : 'https://192.168.36.52:3443';
+    let SERVER = urlParams.get('server') || localStorage.getItem('SERVER_URL') || defaultServer;
+
     const messageLog = document.getElementById('messageLog');
     const overlay       = document.getElementById('messageOverlay');
+    const overlayStatus = document.getElementById('overlayStatus');
+    const overlayLevel  = document.getElementById('overlayLevel');
     let overlayTimeout;
 
-    const eventSource = new EventSource(`${SERVER}/api/events`);
-    eventSource.onmessage = e => {
-        const msg = JSON.parse(e.data);
-        if (msg.type === 'CONNECTED') return;
-        handleMessage(msg);
-    };
-    eventSource.onerror = () => console.warn('[SSE] reconnecting...');
+    let eventSource;
+    function initSSE() {
+        if (eventSource) eventSource.close();
+        eventSource = new EventSource(`${SERVER}/api/events`);
+        eventSource.onmessage = e => {
+            const msg = JSON.parse(e.data);
+            if (msg.type === 'CONNECTED') return;
+            handleMessage(msg);
+        };
+        eventSource.onerror = () => console.warn('[SSE] reconnecting to ' + SERVER + '...');
+    }
+    initSSE();
 
     function handleMessage(message) {
         if (!message || message.type !== 'SALINE_UPDATE') return;
         if (message.status === 'Critical') playAlertSound();
 
-        if (message.status === 'Critical' || message.status === 'Normal') {
-            const isNormal = message.status === 'Normal';
-            const cardClass = isNormal ? 'normal-alert-card' : 'critical-alert-card';
-            const icon = isNormal ? '✅' : '🚨';
-            const title = isNormal ? 'น้ำเกลือปกติ' : 'น้ำเกลือใกล้หมด';
-            const subtitle = isNormal ? '✅ ตรวจพบระดับน้ำเกลือ 100%' : '🚨 ตรวจพบระดับน้ำเกลือ 0%!';
-            const badge = isNormal ? 'สถานะ: เต็ม (ปกติ)' : 'สถานะ: น้ำเกลือหมด';
-            const btnText = isNormal ? 'ปิดหน้าต่าง' : '🔕 ปิดเสียงเตือนชั่วคราว';
-
-            overlay.innerHTML = `
-                <div class="${cardClass}">
-                    <div class="siren-icon">${icon}</div>
-                    <h2 class="alert-title">${title}</h2>
-                    <p class="alert-subtitle">${subtitle}</p>
-                    <div class="patient-badge">${badge}</div>
-                    <button class="mute-btn" onclick="muteAlert(event)">${btnText}</button>
-                </div>
-            `;
-            const overlayClass = isNormal ? 'overlay-normal' : 'overlay-critical';
-            overlay.className = `message-overlay ${overlayClass} custom-card-overlay show`;
-            clearTimeout(overlayTimeout);
-            overlayTimeout = setTimeout(() => overlay.classList.remove('show'), 8000);
-        } else {
-            overlay.innerHTML = `
-                <span class="overlay-status">${message.level === -1 ? 'ไม่พบข้อมูล' : message.status}</span>
-                <span class="overlay-level">${message.level === -1 ? '' : `ระดับน้ำเกลือ: ${message.level}%`}</span>
-            `;
-            overlay.className = `message-overlay overlay-${message.status.toLowerCase()} show`;
-            clearTimeout(overlayTimeout);
-            overlayTimeout = setTimeout(() => overlay.classList.remove('show'), 4000);
-        }
+        overlayStatus.innerText = message.level === -1 ? 'ไม่พบข้อมูล' : message.status;
+        overlayLevel.innerText  = message.level === -1 ? '' : `ระดับน้ำเกลือ: ${message.level}%`;
+        overlay.className = `message-overlay overlay-${message.status.toLowerCase()} show`;
+        clearTimeout(overlayTimeout);
+        overlayTimeout = setTimeout(() => overlay.classList.remove('show'), 4000);
 
         const emptyState = document.querySelector('.empty-state');
         if (emptyState) emptyState.remove();
@@ -445,12 +431,6 @@
             <span class="id">Transmission ID: ${message.id}</span>`;
         messageLog.prepend(el);
     }
-
-    window.muteAlert = function(e) {
-        e.stopPropagation();
-        const overlay = document.getElementById('messageOverlay');
-        if (overlay) overlay.classList.remove('show');
-    };
     </script>
 </body>
 </html>
