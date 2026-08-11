@@ -23,13 +23,7 @@
 
     <script>
         const buttons = document.querySelectorAll('.level-btn');
-        
-        // อ่านค่า SERVER จาก URL parameter ?server=... หรือ localStorage หรือใช้ค่าเริ่มต้น
-        const urlParams = new URLSearchParams(window.location.search);
-        let defaultServer = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
-            ? 'https://localhost:3443' 
-            : 'https://192.168.36.52:3443';
-        let SERVER = urlParams.get('server') || localStorage.getItem('SERVER_URL') || defaultServer;
+        const SERVER = window.location.origin;
 
         buttons.forEach(btn => {
             btn.addEventListener('click', async () => {
@@ -59,12 +53,7 @@
                     console.log(`Delivered to ${result.delivered} receiver(s)`);
                 } catch(e) {
                     console.error('Send failed:', e);
-                    const newServer = prompt('ไม่สามารถเชื่อมต่อ Server (' + SERVER + ') ได้\nกรุณาใส่ Server URL (เช่น https://192.168.36.52:3443):', SERVER);
-                    if (newServer) {
-                        SERVER = newServer;
-                        localStorage.setItem('SERVER_URL', SERVER);
-                        alert('บันทึก Server URL ใหม่เรียบร้อยแล้ว ลองกดส่งอีกครั้งครับ');
-                    }
+                    alert('ไม่สามารถส่งข้อมูลได้ กรุณาตรวจสอบว่า Server กำลังทำงานอยู่');
                 }
             });
         });
