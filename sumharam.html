@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>สรุปการทำงานของโค้ด POP</title>
+    <style>
+        body { font-family: 'Sarabun', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; padding: 20px; max-width: 800px; margin: 0 auto; color: #333; background-color: #f9f9f9; }
+        h1, h2, h3 { color: #0056b3; }
+        code { background-color: #eee; padding: 2px 4px; border-radius: 4px; font-family: 'Courier New', Courier, monospace; }
+        ul, ol { margin-bottom: 20px; }
+        li { margin-bottom: 10px; }
+        .container { background-color: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>สรุปการทำงานของโค้ด POP (Integrated 8-Step Ward Patrol Robot &amp; IV Bag Volume Detection)</h1>
+        <p>ไฟล์ <code>ppppp_main.py</code> (หรือโปรเจกต์ POP) เป็นโค้ดควบคุมหุ่นยนต์ลาดตระเวนในหอผู้ป่วยแบบ 8 ขั้นตอน พร้อมระบบประมวลผลภาพเพื่อตรวจสอบปริมาตรน้ำเกลือ (IV Bag) ในตัว โดยทำงานร่วมกับบอร์ด Arduino, กล้องวิดีโอ และเซนเซอร์อัลตราโซนิก (Sonar)</p>
+        
+        <h2>โครงสร้างและส่วนประกอบหลัก</h2>
+        <ol>
+            <li><strong>ระบบขับเคลื่อนล้อ Mecanum (Mecanum Wheels):</strong> ควบคุมมอเตอร์ 4 ตัว (ซ้ายหน้า, ขวาหน้า, ซ้ายหลัง, ขวาหลัง) ทำให้สามารถเคลื่อนที่ได้อิสระ ทั้งเดินหน้า ถอยหลัง เลี้ยว และสไลด์ออกด้านข้างซ้าย-ขวาได้</li>
+            <li><strong>ระบบหลบหลีกสิ่งกีดขวาง (Obstacle Avoidance):</strong> ใช้เซนเซอร์ Sonar ในการวัดระยะทาง หากพบสิ่งกีดขวางในระยะใกล้กว่า 20 ซม. หุ่นยนต์จะสไลด์หลบไปทางขวาโดยอัตโนมัติ</li>
+            <li><strong>ระบบวิเคราะห์ภาพและปริมาตรน้ำเกลือ (OpenCV - LOLO Version 8):</strong> ใช้เทคนิค Computer Vision ในการหาปริมาณน้ำเกลือในถุง โดยใช้ Canny Edge Detection, การทำ Dilation เพื่อหาขอบเขตถุงน้ำเกลือ และวิเคราะห์พิกเซลเพื่อหาระดับน้ำ (Fluid line) จากนั้นคำนวณออกมาเป็นเปอร์เซ็นต์และปริมาตรมิลลิลิตร (ml)</li>
+            <li><strong>ระบบ Web UI และ Telemetry:</strong> สื่อสารกับหน้าจอผ่าน Socket.IO ส่งข้อมูลกลับไปยังหน้าเว็บแบบ Real-time เช่น สถานะหุ่นยนต์, วิดีโอสตรีมมิ่งที่วาดกรอบน้ำเกลือแล้ว, ข้อมูลระยะห่างจาก Sonar และปริมาตรน้ำเกลือ</li>
+        </ol>
+
+        <h2>การทำงาน 8 ขั้นตอน (8-Step Patrol Sequence)</h2>
+        <p>ฟังก์ชัน <code>patrol_worker()</code> จะทำงานแบบอัตโนมัติ (Auto Mode) ตามลำดับดังนี้:</p>
+        <ul>
+            <li><strong>ขั้นที่ 1:</strong> เดินหน้า 1.5 วินาที พร้อมเปิดระบบหลบหลีกสิ่งกีดขวาง</li>
+            <li><strong>ขั้นที่ 2:</strong> เลี้ยวซ้าย 90 องศา</li>
+            <li><strong>ขั้นที่ 3:</strong> เดินหน้าต่อ 2.5 วินาที</li>
+            <li><strong>ขั้นที่ 4:</strong> ถอยหลัง 2.0 วินาที</li>
+            <li><strong>ขั้นที่ 5:</strong> สไลด์ขวาไปที่ <strong>เตียงที่ 1</strong> เป็นเวลา 2 วินาที</li>
+            <li><strong>ขั้นที่ 6:</strong> เริ่มสแกนเตียงที่ 1 เป็นเวลา 5 วินาที เพื่อหาระดับน้ำเกลือและบันทึกผล</li>
+            <li><strong>ขั้นที่ 7:</strong> สไลด์ขวาไปที่ <strong>เตียงที่ 2</strong> เป็นเวลา 2 วินาที</li>
+            <li><strong>ขั้นที่ 8:</strong> เริ่มสแกนเตียงที่ 2 เป็นเวลา 5 วินาที เพื่อหาระดับน้ำเกลือและส่งผลกลับไปที่ระบบ เมื่อเสร็จสิ้นหุ่นยนต์จะกลับสู่โหมด Standby</li>
+        </ul>
+
+        <h2>ฟังก์ชันที่สำคัญในโค้ด</h2>
+        <ul>
+            <li><code>process_frame(frame)</code>: รับภาพจากกล้อง แปลงเป็นภาพขาวดำ ทำเบลอ และใช้ Edge Detection ในการคำนวณปริมาณน้ำในถุงน้ำเกลือ คืนค่าภาพที่ถูกวาดกรอบแล้วพร้อมกับค่าระดับน้ำ (ml)</li>
+            <li><code>drive_forward_avoid(duration_s)</code>: สั่งหุ่นยนต์เดินหน้าแบบจำกัดเวลา พร้อมตรวจจับระยะห่าง หากเจอสิ่งกีดขวางใกล้กว่า 20 ซม. จะสั่งสไลด์หลบ</li>
+            <li><code>turn_left_90()</code> / <code>slide_right_timed()</code>: ควบคุมทิศทางล้อ Mecanum แบบตายตัวตามเวลาที่ตั้งไว้</li>
+            <li><code>patrol_worker()</code>: Thread หลักที่ใช้รันลำดับขั้น 8 ขั้นตอนให้ต่อเนื่องกัน</li>
+            <li><code>_custom_process_message()</code>: ฟังก์ชันดักจับ (Monkey-Patch) ภาพจากกล้องก่อนจะส่งขึ้น Web UI เพื่อทำการแทรกกระบวนการวิเคราะห์น้ำเกลือลงในเฟรมวิดีโอ</li>
+        </ul>
+
+        <h2>ภาพรวม</h2>
+        <p>โปรเจกต์ POP เป็นการรวมเอาเทคโนโลยี <strong>หุ่นยนต์เคลื่อนที่ (Robotics)</strong> และ <strong>การประมวลผลภาพ (Computer Vision)</strong> เข้าด้วยกัน เพื่อลดภาระของพยาบาลในการเดินตรวจน้ำเกลือตามเตียงผู้ป่วย โดยหุ่นยนต์สามารถทำงานได้ด้วยตัวเองแบบอัตโนมัติตามเส้นทางที่กำหนดไว้</p>
+
+        <h2>ระบบเสริม: การติดตามวัตถุ (Object Tracking)</h2>
+        <p>นอกจากระบบประมวลผลภาพสำหรับน้ำเกลือแล้ว ยังมีการพัฒนาระบบติดตามวัตถุเพิ่มเติมผ่าน WebRTC (<code>receiver.html</code>) โดยมีฟังก์ชันที่สำคัญดังนี้:</p>
+        <ul>
+            <li><strong>การจำวัตถุ (Object Recognition / <code>captureTemplate</code>):</strong> ระบบสามารถบันทึกภาพของวัตถุต้นแบบ (Template) โดยดึงพิกเซลจากเฟรมวิดีโอ ณ ตำแหน่งที่ผู้ใช้เลือก เพื่อนำข้อมูลภาพมาใช้เปรียบเทียบและติดตามตำแหน่งวัตถุในเฟรมถัดไป (Template Matching) เมื่อเริ่มจำวัตถุแล้ว สถานะจะแจ้งเตือนว่า "✅ จำวัตถุแล้ว — กำลังติดตาม..."</li>
+            <li><strong>การรีเซ็ต (Reset Tracker / <code>resetTracker</code>):</strong> ผู้ใช้สามารถล้างข้อมูลวัตถุที่บันทึกไว้ได้ โดยเมื่อทำการรีเซ็ต ระบบจะล้างค่าตัวแปรข้อมูลภาพ (<code>tmpl = null</code>), หยุดการติดตาม (<code>tracking = false</code>), ลบกรอบภาพที่วาดบนหน้าจอ และคืนค่าสถานะเป็น "กด 📸 จำวัตถุ เพื่อเริ่มติดตามใหม่"</li>
+        </ul>
+    </div>
+</body>
+</html>
